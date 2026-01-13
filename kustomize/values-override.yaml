@@ -1,0 +1,204 @@
+# Values overrides for Mimir custom chart
+# These values will be merged with the base chart values
+
+# Global overrides
+global:
+  podAnnotations:
+    custom.chart/managed-by: "kustomize"
+  podLabels:
+    custom.chart/version: "0.1.0"
+
+# Mimir configuration overrides
+mimir:
+  # Structured configuration for Mimir
+  structuredConfig:
+    # Common configuration
+    common:
+      storage:
+        backend: s3
+        s3:
+          endpoint: s3.amazonaws.com
+          bucket_name: mimir-blocks-custom
+          access_key_id: ${AWS_ACCESS_KEY_ID}
+          secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+    
+    # Limits configuration
+    limits:
+      # Increase default limits for custom deployment
+      ingestion_rate: 100000
+      ingestion_burst_size: 200000
+      max_global_series_per_user: 5000000
+      max_global_series_per_metric: 100000
+    
+    # Compactor configuration
+    compactor:
+      data_dir: /data
+      sharding_ring:
+        kvstore:
+          store: consul
+          consul:
+            host: consul:8500
+    
+    # Store gateway configuration
+    store_gateway:
+      sharding_ring:
+        replication_factor: 3
+        kvstore:
+          store: consul
+          consul:
+            host: consul:8500
+
+  # Component-specific overrides
+  ingester:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 4Gi
+      limits:
+        cpu: 2000m
+        memory: 8Gi
+    persistentVolume:
+      size: 100Gi
+      storageClass: fast-ssd
+    
+  distributor:
+    replicas: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    
+  querier:
+    replicas: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    
+  query_frontend:
+    replicas: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    
+  compactor:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+    persistentVolume:
+      size: 50Gi
+      storageClass: standard
+    
+  store_gateway:
+    replicas: 3
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    persistentVolume:
+      size: 50Gi
+      storageClass: standard
+
+# Nginx gateway overrides
+nginx:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  
+  # Ingress configuration
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - host: mimir.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: mimir-tls
+        hosts:
+          - mimir.example.com
+
+# Monitoring and observability
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  labels:
+    monitoring: prometheus
+
+# Security context overrides
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+
+# Container security context
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+    - ALL
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+  
+# Network policies
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
+
+# Resource quotas and limits
+resourceQuota:
+  enabled: true
+  hard:
+    requests.cpu: "10"
+    requests.memory: 20Gi
+    limits.cpu: "20"
+    limits.memory: 40Gi
+    persistentvolumeclaims: "10"
+
+# Custom annotations for all resources
+annotations:
+  custom.chart/version: "0.1.0"
+  custom.chart/build-date: "2025-01-13"
+  custom.chart/source: "mimir-custom"

@@ -1,0 +1,151 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mimir-custom-network-policy
+  labels:
+    app.kubernetes.io/name: mimir-custom
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mimir
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow ingress from nginx gateway
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: mimir
+          app.kubernetes.io/component: nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Allow ingress from Prometheus for metrics scraping
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Allow inter-component communication
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: mimir
+    ports:
+    - protocol: TCP
+      port: 9095  # gRPC
+    - protocol: TCP
+      port: 8080  # HTTP
+    - protocol: TCP
+      port: 7946  # Memberlist
+  
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  egress:
+  # Allow egress to other Mimir components
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: mimir
+    ports:
+    - protocol: TCP
+      port: 9095  # gRPC
+    - protocol: TCP
+      port: 8080  # HTTP
+    - protocol: TCP
+      port: 7946  # Memberlist
+  
+  # Allow egress to Consul for service discovery
+  - to:
+    - podSelector:
+        matchLabels:
+          app: consul
+    ports:
+    - protocol: TCP
+      port: 8500
+  
+  # Allow egress to external storage (S3, GCS, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS
+    - protocol: TCP
+      port: 80   # HTTP
+  
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mimir-nginx-network-policy
+  labels:
+    app.kubernetes.io/name: mimir-custom
+    app.kubernetes.io/component: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mimir
+      app.kubernetes.io/component: nginx
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Allow ingress from external load balancers
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  egress:
+  # Allow egress to Mimir components
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: mimir
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 9095
+  
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53

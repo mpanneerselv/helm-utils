@@ -1,0 +1,49 @@
+# Minimal configuration for testing
+mimir:
+  ingester:
+    replicas: 1
+    persistentVolume:
+      size: 1Gi
+  
+  distributor:
+    replicas: 1
+  
+  querier:
+    replicas: 1
+  
+  query_frontend:
+    replicas: 1
+  
+  compactor:
+    replicas: 1
+    persistentVolume:
+      size: 1Gi
+  
+  store_gateway:
+    replicas: 1
+    persistentVolume:
+      size: 1Gi
+
+nginx:
+  replicas: 1
+  ingress:
+    enabled: false
+
+# Minimal resource requirements
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 100m
+    memory: 256Mi
+
+# Disable optional features
+serviceMonitor:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+resourceQuota:
+  enabled: false

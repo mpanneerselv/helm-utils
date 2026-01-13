@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mimir-compactor
+spec:
+  template:
+    spec:
+      containers:
+      - name: mimir
+        env:
+        - name: CUSTOM_COMPACTOR_ENABLED
+          value: "true"
+        - name: COMPACTION_INTERVAL
+          value: "2h"
+        # Enhanced container security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        # Add custom args for compactor optimization
+        args:
+        - -target=compactor
+        - -config.file=/etc/mimir/mimir.yaml
+        - -compactor.block-ranges=2h,12h,24h
+        - -compactor.cleanup-interval=5m
+        - -compactor.deletion-delay=12h
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        # Add volume mounts for writable directories
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: data-volume
+          mountPath: /data
+      # Add volumes for writable directories
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: data-volume
+        emptyDir: {}
+      # Enhanced pod security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      # Add init container for data directory setup
+      initContainers:
+      - name: setup-data-dir
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          mkdir -p /data/compactor
+          chown -R 10001:10001 /data
+        volumeMounts:
+        - name: data-volume
+          mountPath: /data
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - FOWNER

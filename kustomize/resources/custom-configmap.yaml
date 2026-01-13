@@ -1,0 +1,152 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mimir-custom-config
+  labels:
+    app.kubernetes.io/name: mimir-custom
+    app.kubernetes.io/component: config
+data:
+  # Custom Mimir configuration overrides
+  mimir-overrides.yaml: |
+    overrides:
+      # Per-tenant limits
+      tenant1:
+        ingestion_rate: 50000
+        max_global_series_per_user: 1000000
+      tenant2:
+        ingestion_rate: 100000
+        max_global_series_per_user: 2000000
+      
+      # Default limits for all tenants
+      default:
+        ingestion_rate: 25000
+        ingestion_burst_size: 50000
+        max_global_series_per_user: 500000
+        max_global_series_per_metric: 50000
+        max_global_metadata_per_user: 100000
+        max_global_metadata_per_metric: 10
+        
+        # Query limits
+        max_query_length: 32d
+        max_query_parallelism: 14
+        max_samples_per_query: 50000000
+        max_series_per_query: 100000
+        
+        # Compaction limits
+        compactor_blocks_retention_period: 0s
+        
+        # Store gateway limits
+        store_gateway_tenant_shard_size: 3
+  
+  # Alertmanager configuration
+  alertmanager-config.yaml: |
+    global:
+      smtp_smarthost: 'localhost:587'
+      smtp_from: 'mimir-alerts@example.com'
+    
+    route:
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'default'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'critical-alerts'
+      - match:
+          component: ingester
+        receiver: 'ingester-alerts'
+    
+    receivers:
+    - name: 'default'
+      email_configs:
+      - to: 'team@example.com'
+        subject: 'Mimir Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          {{ end }}
+    
+    - name: 'critical-alerts'
+      email_configs:
+      - to: 'oncall@example.com'
+        subject: 'CRITICAL Mimir Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          CRITICAL Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          {{ end }}
+      slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#alerts'
+        title: 'CRITICAL Mimir Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+    
+    - name: 'ingester-alerts'
+      email_configs:
+      - to: 'storage-team@example.com'
+        subject: 'Mimir Ingester Alert: {{ .GroupLabels.alertname }}'
+  
+  # Custom logging configuration
+  logging-config.yaml: |
+    log_level: info
+    log_format: json
+    
+    # Custom log filters
+    server:
+      log_request_headers: false
+      log_source_ips_enabled: true
+      log_source_ips_header: "X-Forwarded-For"
+      log_source_ips_regex: "^(\\d+\\.\\d+\\.\\d+\\.\\d+)"
+  
+  # Performance tuning configuration
+  performance-config.yaml: |
+    # Ingester performance tuning
+    ingester:
+      lifecycler:
+        heartbeat_period: 5s
+        join_after: 10s
+        min_ready_duration: 15s
+        final_sleep: 30s
+      
+      # TSDB configuration
+      tsdb_config:
+        dir: /data/tsdb
+        block_ranges_period: ["2h", "12h", "24h"]
+        retention_period: 6h
+        ship_interval: 1m
+        head_compaction_interval: 1m
+        head_compaction_concurrency: 5
+        stripe_size: 16384
+        wal_compression_enabled: true
+        wal_segment_size_bytes: 134217728
+        flush_blocks_on_shutdown: true
+    
+    # Distributor performance tuning
+    distributor:
+      pool:
+        health_check_ingesters: true
+        client_cleanup_period: 15s
+      
+      ha_tracker:
+        enable_ha_tracker: true
+        kvstore:
+          store: consul
+        update_timeout: 15s
+        failover_timeout: 30s
+    
+    # Querier performance tuning
+    querier:
+      query_ingesters_within: 13h
+      query_store_after: 12h
+      max_concurrent: 20
+      timeout: 2m
+      
+      # Store gateway client
+      store_gateway_client:
+        server_address: ""
+        grpc_client_config:
+          max_recv_msg_size: 104857600
+          max_send_msg_size: 16777216

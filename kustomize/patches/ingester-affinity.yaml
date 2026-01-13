@@ -1,0 +1,30 @@
+- op: add
+  path: /spec/template/spec/tolerations
+  value:
+  - key: "mimir-ingester"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+- op: add
+  path: /spec/template/spec/nodeSelector
+  value:
+    workload-type: "mimir-ingester"
+- op: replace
+  path: /spec/template/spec/affinity/podAntiAffinity/requiredDuringSchedulingIgnoredDuringExecution
+  value:
+  - labelSelector:
+      matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+        - ingester
+    topologyKey: kubernetes.io/hostname
+- op: add
+  path: /spec/template/spec/topologySpreadConstraints
+  value:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/component: ingester

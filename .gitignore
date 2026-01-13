@@ -1,0 +1,113 @@
+# Build artifacts
+build/
+charts/mimir-distributed/
+
+# Helm
+*.tgz
+Chart.lock
+
+# Kustomize
+kustomization.yaml.bak
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Node modules (if using any JS tools)
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Secrets (never commit these)
+secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Test results
+test-results/
+coverage/
+*.coverage
+
+# Security scan results
+security-results/
+*.sarif
+
+# Local configuration overrides
+local-values.yaml
+local-config.yaml
+override-*.yaml
+
+# Helm repository cache
+.helm/
+
+# Kubernetes configs (be careful with these)
+kubeconfig
+*.kubeconfig
+
+# Docker
+.dockerignore
+
+# Terraform (if used for infrastructure)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Ansible (if used for configuration)
+*.retry
+
+# Local development
+.local/
+local/

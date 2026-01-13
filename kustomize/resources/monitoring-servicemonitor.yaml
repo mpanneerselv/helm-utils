@@ -1,0 +1,91 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mimir-custom-metrics
+  labels:
+    app.kubernetes.io/name: mimir-custom
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mimir
+  endpoints:
+  - port: http-metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    honorLabels: true
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    - sourceLabels: [__meta_kubernetes_pod_container_name]
+      targetLabel: container
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+  - port: grpc
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    honorLabels: true
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    - sourceLabels: [__meta_kubernetes_pod_container_name]
+      targetLabel: container
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+  namespaceSelector:
+    matchNames:
+    - mimir
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mimir-custom-alerts
+  labels:
+    app.kubernetes.io/name: mimir-custom
+    app.kubernetes.io/component: monitoring
+spec:
+  groups:
+  - name: mimir-custom.rules
+    interval: 30s
+    rules:
+    - alert: MimirCustomIngesterDown
+      expr: up{job=~".*mimir-ingester.*"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        component: ingester
+      annotations:
+        summary: "Mimir Custom ingester is down"
+        description: "Mimir Custom ingester {{ $labels.instance }} has been down for more than 5 minutes."
+    
+    - alert: MimirCustomDistributorDown
+      expr: up{job=~".*mimir-distributor.*"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        component: distributor
+      annotations:
+        summary: "Mimir Custom distributor is down"
+        description: "Mimir Custom distributor {{ $labels.instance }} has been down for more than 5 minutes."
+    
+    - alert: MimirCustomHighIngestionRate
+      expr: rate(mimir_distributor_received_samples_total[5m]) > 50000
+      for: 10m
+      labels:
+        severity: warning
+        component: distributor
+      annotations:
+        summary: "High ingestion rate detected"
+        description: "Mimir Custom is receiving samples at {{ $value }} samples/sec, which is above the threshold."
+    
+    - alert: MimirCustomCompactorNotRunning
+      expr: up{job=~".*mimir-compactor.*"} == 0
+      for: 15m
+      labels:
+        severity: warning
+        component: compactor
+      annotations:
+        summary: "Mimir Custom compactor not running"
+        description: "Mimir Custom compactor has been down for more than 15 minutes."
